@@ -59,7 +59,8 @@ async def predict_single(transaction: dict[str, Any], predictor: Predictor = Dep
         raise HTTPException(status_code=400, detail=msg)
     try:
         return predictor.predict(df)[0]
-    except Exception:
+    except (ValueError, TypeError, RuntimeError) as e:
+        logger.error(f"Internal prediction error: {e}")
         raise HTTPException(status_code=500, detail="Internal prediction error.")
 
 @app.post("/predict/batch", response_model=BatchPredictionResponse)
@@ -79,7 +80,8 @@ async def predict_batch(transactions: list[dict[str, Any]], predictor: Predictor
         fraud_count = sum(1 for p in preds if p["is_fraud"])
         summary = {"batch_size": len(preds), "fraud_detected": fraud_count, "fraud_prevalence": fraud_count / len(preds)}
         return BatchPredictionResponse(predictions=preds, summary=summary)
-    except Exception:
+    except (ValueError, TypeError, RuntimeError) as e:
+        logger.error(f"Internal batch prediction error: {e}")
         raise HTTPException(status_code=500, detail="Internal prediction error.")
 
 @app.post("/validate", response_model=ValidationResponse)
@@ -97,7 +99,6 @@ async def check_drift(current_data: list[dict[str, Any]], predictor: Predictor =
 
     curr_df = pd.DataFrame(current_data)
 
-    # Validate structure based on the model's schema to ensure we have the correct data shape
     if predictor.is_loaded:
         is_valid, msg = predictor.validate_features(curr_df)
         if not is_valid:
@@ -109,7 +110,7 @@ async def check_drift(current_data: list[dict[str, Any]], predictor: Predictor =
 
     try:
         ref_df = pd.read_csv(ref_path)
-    except Exception as e:
+    except (FileNotFoundError, pd.errors.EmptyDataError) as e:
         logger.error(f"Failed to read reference data: {e}")
         raise HTTPException(status_code=500, detail="Error loading reference data.")
 
@@ -117,7 +118,7 @@ async def check_drift(current_data: list[dict[str, Any]], predictor: Predictor =
 
     try:
         summary = calculate_drift(ref_df, curr_df, num_features)
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError) as e:
         logger.error(f"Failed to calculate drift: {e}")
         raise HTTPException(status_code=500, detail="Internal drift calculation error.")
 

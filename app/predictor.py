@@ -36,7 +36,7 @@ class Predictor:
 
             self.is_loaded = True
             return True
-        except Exception as e:
+        except (json.JSONDecodeError, FileNotFoundError, OSError, TypeError) as e:
             logger.error(f"Failed to load model artifacts: {e}")
             return False
 
@@ -66,7 +66,7 @@ class Predictor:
                     return False, f"Non-numeric values found in column {col}"
                 if np.isinf(df[col]).any():
                     return False, f"Infinite values found in column {col}"
-        except Exception as e:
+        except (ValueError, TypeError) as e:
             return False, f"Data validation error: {e}"
 
         return True, None
@@ -75,7 +75,6 @@ class Predictor:
         if not self.is_loaded:
             raise RuntimeError("Model is not loaded.")
 
-        # Order features as expected
         df = df[list(self.schema.keys())]
 
         X = self.feature_engineer.transform(df)

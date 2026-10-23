@@ -16,7 +16,7 @@ def download_kaggle_dataset(output_dir: Path):
             "mlg-ulb/creditcardfraud", path=str(output_dir), unzip=True
         )
         logger.info(f"Dataset downloaded successfully to {output_dir}")
-    except Exception as e:
+    except (OSError, ConnectionError, ImportError) as e:
         logger.error(f"Failed to download dataset: {e}")
 
 
