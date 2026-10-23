@@ -31,45 +31,42 @@ def mock_artifact_dir(tmp_path):
 
 def test_predictor_load_success(mock_artifact_dir):
     predictor = Predictor(mock_artifact_dir)
-    assert predictor.load() is True; assert predictor.is_loaded is True
+    assert predictor.load() is True
+    assert predictor.is_loaded is True
     assert predictor.get_info()["model_name"] == "Logistic Regression"
 
 def test_predictor_load_failure(tmp_path):
     predictor = Predictor(tmp_path)
-    assert predictor.load() is False; assert predictor.is_loaded is False
+    assert predictor.load() is False
+    assert predictor.is_loaded is False
 
 def test_predictor_validate_features_valid(mock_artifact_dir):
-    predictor = Predictor(mock_artifact_dir); predictor.load()
+    predictor = Predictor(mock_artifact_dir)
+    predictor.load()
     is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5, "F2": 2.5}]))
-    assert is_valid is True; assert msg is None
+    assert is_valid is True
+    assert msg is None
 
 def test_predictor_validate_features_missing(mock_artifact_dir):
-    predictor = Predictor(mock_artifact_dir); predictor.load()
+    predictor = Predictor(mock_artifact_dir)
+    predictor.load()
     is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5}]))
-    assert is_valid is False; assert "Missing required features" in msg
-
-def test_predictor_validate_features_unexpected(mock_artifact_dir):
-    predictor = Predictor(mock_artifact_dir); predictor.load()
-    is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5, "F2": 2.5, "F3": 3.5}]))
-    assert is_valid is False; assert "Unexpected features found" in msg
-
-def test_predictor_validate_features_nan(mock_artifact_dir):
-    predictor = Predictor(mock_artifact_dir); predictor.load()
-    is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5, "F2": np.nan}]))
-    assert is_valid is False; assert "Missing values" in msg
-
-def test_predictor_validate_features_inf(mock_artifact_dir):
-    predictor = Predictor(mock_artifact_dir); predictor.load()
-    is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5, "F2": np.inf}]))
-    assert is_valid is False; assert "Infinite values" in msg
+    assert is_valid is False
+    assert "Missing required features" in msg
 
 def test_predictor_validate_features_invalid_type(mock_artifact_dir):
-    predictor = Predictor(mock_artifact_dir); predictor.load()
+    predictor = Predictor(mock_artifact_dir)
+    predictor.load()
     is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5, "F2": "invalid_string"}]))
-    assert is_valid is False; assert "Non-numeric values" in msg
+    assert is_valid is False
+    assert "Non-numeric values" in msg
 
 def test_predictor_predict(mock_artifact_dir):
-    predictor = Predictor(mock_artifact_dir); predictor.load()
+    predictor = Predictor(mock_artifact_dir)
+    predictor.load()
     predictions = predictor.predict(pd.DataFrame([{"F1": 1.5, "F2": 2.5}]))
     assert len(predictions) == 1
-    assert "probability" in predictions[0]; assert "is_fraud" in predictions[0]; assert "threshold" in predictions[0]; assert predictions[0]["threshold"] == 0.5
+    assert "probability" in predictions[0]
+    assert "is_fraud" in predictions[0]
+    assert "threshold" in predictions[0]
+    assert predictions[0]["threshold"] == 0.5

@@ -34,57 +34,73 @@ def mock_artifacts(tmp_path):
 def test_health_check_with_model():
     with TestClient(app) as test_client:
         response = test_client.get("/health")
-        assert response.status_code == 200; assert response.json()["status"] == "ok"; assert response.json()["model_loaded"] is True
+        assert response.status_code == 200
+        assert response.json()["status"] == "ok"
+        assert response.json()["model_loaded"] is True
 
 def test_readiness_check_with_model():
     with TestClient(app) as test_client:
         response = test_client.get("/ready")
-        assert response.status_code == 200; assert response.json()["ready"] is True
+        assert response.status_code == 200
+        assert response.json()["ready"] is True
 
 def test_model_info():
     with TestClient(app) as test_client:
         response = test_client.get("/model-info")
-        assert response.status_code == 200; data = response.json(); assert data["model_name"] == "TestModel"; assert data["version"] == "v1.0"; assert "F1" in data["features"]
+        assert response.status_code == 200
+        data = response.json()
+        assert data["model_name"] == "TestModel"
+        assert data["version"] == "v1.0"
+        assert "F1" in data["features"]
 
 def test_predict_single_valid():
     with TestClient(app) as test_client:
         response = test_client.post("/predict", json={"F1": 1.5, "F2": 2.5})
-        assert response.status_code == 200; data = response.json(); assert "probability" in data; assert "is_fraud" in data; assert data["threshold"] == 0.5
+        assert response.status_code == 200
+        data = response.json()
+        assert "probability" in data
+        assert "is_fraud" in data
+        assert data["threshold"] == 0.5
 
 def test_predict_single_invalid_missing():
     with TestClient(app) as test_client:
         response = test_client.post("/predict", json={"F1": 1.5})
-        assert response.status_code == 400; assert "Missing required features" in response.json()["detail"]
+        assert response.status_code == 400
+        assert "Missing required features" in response.json()["detail"]
 
 def test_predict_single_invalid_extra():
     with TestClient(app) as test_client:
         response = test_client.post("/predict", json={"F1": 1.5, "F2": 2.5, "F3": 3.5})
-        assert response.status_code == 400; assert "Unexpected features found" in response.json()["detail"]
+        assert response.status_code == 400
+        assert "Unexpected features found" in response.json()["detail"]
 
 def test_predict_single_invalid_nan():
     with TestClient(app) as test_client:
-        # Standard JSON does not support NaN/Infinity. We have to send as string or the client library fails.
-        # But we also want to test predictor's resilience. Let's just use string "NaN" to simulate a bad value.
         response = test_client.post("/predict", json={"F1": 1.5, "F2": "NaN"})
-        assert response.status_code == 400; assert "Non-numeric values" in response.json()["detail"] or "Missing values" in response.json()["detail"]
+        assert response.status_code == 400
+        assert "Non-numeric values" in response.json()["detail"] or "Missing values" in response.json()["detail"]
 
 def test_predict_single_invalid_inf():
     with TestClient(app) as test_client:
         response = test_client.post("/predict", json={"F1": 1.5, "F2": "Infinity"})
-        assert response.status_code == 400; assert "Non-numeric values" in response.json()["detail"] or "Infinite values" in response.json()["detail"]
+        assert response.status_code == 400
+        assert "Non-numeric values" in response.json()["detail"] or "Infinite values" in response.json()["detail"]
 
 def test_predict_batch_valid():
     with TestClient(app) as test_client:
         response = test_client.post("/predict/batch", json=[{"F1": 1.5, "F2": 2.5}, {"F1": -1.5, "F2": -2.5}])
-        assert response.status_code == 200; data = response.json(); assert len(data["predictions"]) == 2; assert data["summary"]["batch_size"] == 2
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["predictions"]) == 2
+        assert data["summary"]["batch_size"] == 2
 
 def test_validate_endpoint():
     with TestClient(app) as test_client:
         response = test_client.post("/validate", json={"F1": 1.5, "F2": 2.5})
-        assert response.status_code == 200; assert response.json()["valid"] is True
+        assert response.status_code == 200
+        assert response.json()["valid"] is True
 
 def test_drift_valid(mock_artifacts, monkeypatch):
-    # We need to mock the existence of the reference dataset
     from transactionguard.config import config
 
     reference_path = config.REFERENCE_DATA_DIR / "reference.csv"
@@ -123,7 +139,7 @@ def test_drift_invalid_missing_ref(mock_artifacts):
 def test_drift_invalid_data(mock_artifacts):
     with TestClient(app) as test_client:
         payload = [
-            {"F1": 1.5} # Missing F2
+            {"F1": 1.5}
         ]
         response = test_client.post("/monitor/drift", json=payload)
         assert response.status_code == 400

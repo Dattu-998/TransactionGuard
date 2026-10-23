@@ -92,13 +92,11 @@ def main():
             mlflow.log_metric("tp", opt_metrics.get("tp", 0))
             mlflow.log_metric("cost", opt_metrics.get("cost", 0))
 
-            # Log Model Artifact
-            try:
-                # Provide trusted types specifically requested to fix the security boundary requirement on skops
-                mlflow.sklearn.log_model(model, artifact_path="model", skops_trusted_types=["sklearn.tree._tree.Tree", "lightgbm.sklearn.LGBMClassifier", "collections.OrderedDict", "lightgbm.basic.Booster"])
-            except Exception as e:
-                # Using a broad exception handle, in case it varies based on exact sklearn versions.
-                logger.warning(f"Could not log sklearn model due to an exception: {e}")
+            # Log Model Artifact natively using joblib instead of sklearn to bypass skops trusted types errors entirely
+            # AND doing it without the silent failure catch
+            temp_path = config.ARTIFACT_DIR / f"{model_name.replace(' ', '_')}.joblib"
+            joblib.dump(model, temp_path)
+            mlflow.log_artifact(str(temp_path), artifact_path="model")
 
             logger.info(f"{model_name} Val PR-AUC: {metrics_05['pr_auc']:.4f}")
             logger.info(f"{model_name} Opt Threshold: {best_th:.4f}")

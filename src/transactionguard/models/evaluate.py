@@ -22,7 +22,10 @@ def evaluate_model(y_true: np.ndarray, y_prob: np.ndarray, threshold: float = 0.
     recall = recall_score(y_true, y_pred, zero_division=0)
     f1 = f1_score(y_true, y_pred, zero_division=0)
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
-    tn, fp, fn, tp = int(cm[0, 0]), int(cm[0, 1]), int(cm[1, 0]), int(cm[1, 1])
+    tn = int(cm[0, 0])
+    fp = int(cm[0, 1])
+    fn = int(cm[1, 0])
+    tp = int(cm[1, 1])
     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
     fnr = fn / (fn + tp) if (fn + tp) > 0 else 0.0
     return {
@@ -35,7 +38,9 @@ def plot_confusion_matrix(y_true, y_pred, save_path):
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
     plt.figure(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Legit', 'Fraud'], yticklabels=['Legit', 'Fraud'])
-    plt.ylabel('Actual'); plt.xlabel('Predicted'); plt.title('Confusion Matrix')
+    plt.ylabel('Actual')
+    plt.xlabel('Predicted')
+    plt.title('Confusion Matrix')
     plt.tight_layout()
     plt.savefig(save_path)
     plt.close()
