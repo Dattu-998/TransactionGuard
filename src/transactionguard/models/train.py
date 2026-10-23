@@ -1,9 +1,10 @@
-import time
-import pandas as pd
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
 import lightgbm as lgb
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+
 from transactionguard.utils.logging import get_logger
+
 logger = get_logger(__name__)
 
 def train_logistic_regression(X_train: pd.DataFrame, y_train: pd.Series):

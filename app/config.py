@@ -1,6 +1,8 @@
 import os
-from pydantic_settings import BaseSettings
 from pathlib import Path
+
+from pydantic_settings import BaseSettings
+
 
 class AppConfig(BaseSettings):
     app_name: str = "TransactionGuard API"

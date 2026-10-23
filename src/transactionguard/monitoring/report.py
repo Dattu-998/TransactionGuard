@@ -1,5 +1,7 @@
 import json
+
 import pandas as pd
+
 
 def generate_drift_report(drift_summary: dict, report_dir):
     report_dir.mkdir(parents=True, exist_ok=True)

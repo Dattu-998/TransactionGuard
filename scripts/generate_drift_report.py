@@ -1,8 +1,9 @@
 import pandas as pd
-from transactionguard.utils.logging import get_logger
+
 from transactionguard.config import config
 from transactionguard.monitoring.drift import calculate_drift
 from transactionguard.monitoring.report import generate_drift_report
+from transactionguard.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

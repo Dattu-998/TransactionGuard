@@ -1,5 +1,7 @@
 import numpy as np
+
 from transactionguard.models.threshold import optimize_threshold
+
 
 def test_optimize_threshold_perfect_predictor():
     y_true = np.array([0, 0, 1, 1])

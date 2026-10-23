@@ -1,6 +1,8 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from transactionguard.utils.logging import get_logger
+
 logger = get_logger(__name__)
 
 def validate_dataset(df: pd.DataFrame, target_col: str = "Class") -> bool:

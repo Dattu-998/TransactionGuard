@@ -1,7 +1,13 @@
-import pytest
-import pandas as pd
 import numpy as np
-from transactionguard.models.train import train_logistic_regression, train_random_forest, train_lightgbm
+import pandas as pd
+import pytest
+
+from transactionguard.models.train import (
+    train_lightgbm,
+    train_logistic_regression,
+    train_random_forest,
+)
+
 
 @pytest.fixture
 def dummy_data():

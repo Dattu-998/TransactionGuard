@@ -1,6 +1,8 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+
 from transactionguard.monitoring.drift import calculate_drift
+
 
 def test_calculate_drift_no_drift():
     np.random.seed(42)

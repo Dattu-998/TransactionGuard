@@ -1,16 +1,23 @@
+import json
 import time
+
 import joblib
 import mlflow
-import json
-from transactionguard.utils.logging import get_logger
+import mlflow.sklearn
+
 from transactionguard.config import config
 from transactionguard.data.load import load_data
-from transactionguard.data.validate import validate_dataset
 from transactionguard.data.split import split_data
+from transactionguard.data.validate import validate_dataset
 from transactionguard.features.engineering import FeatureEngineer
-from transactionguard.models.train import train_logistic_regression, train_random_forest, train_lightgbm
 from transactionguard.models.evaluate import evaluate_model
 from transactionguard.models.threshold import optimize_threshold
+from transactionguard.models.train import (
+    train_lightgbm,
+    train_logistic_regression,
+    train_random_forest,
+)
+from transactionguard.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -28,6 +35,9 @@ def main():
     validate_dataset(df)
     train_df, val_df, test_df = split_data(df)
     test_df.to_csv(config.PROCESSED_DATA_DIR / "test_data.csv", index=False)
+
+    # Save train_df as reference for drift monitoring
+    train_df.to_csv(config.REFERENCE_DATA_DIR / "reference.csv", index=False)
 
     fe = FeatureEngineer()
     X_train = fe.fit_transform(train_df)
@@ -66,6 +76,8 @@ def main():
             mlflow.log_param("random_seed", config.RANDOM_STATE)
             mlflow.log_param("train_samples", len(X_train))
             mlflow.log_param("val_samples", len(X_val))
+            mlflow.log_param("fn_cost", config.FN_COST)
+            mlflow.log_param("fp_cost", config.FP_COST)
 
             mlflow.log_metric("val_pr_auc", metrics_05["pr_auc"])
             mlflow.log_metric("val_roc_auc", metrics_05["roc_auc"])
@@ -78,6 +90,15 @@ def main():
             mlflow.log_metric("fp", opt_metrics.get("fp", 0))
             mlflow.log_metric("fn", opt_metrics.get("fn", 0))
             mlflow.log_metric("tp", opt_metrics.get("tp", 0))
+            mlflow.log_metric("cost", opt_metrics.get("cost", 0))
+
+            # Log Model Artifact
+            try:
+                # Provide trusted types specifically requested to fix the security boundary requirement on skops
+                mlflow.sklearn.log_model(model, artifact_path="model", skops_trusted_types=["sklearn.tree._tree.Tree", "lightgbm.sklearn.LGBMClassifier", "collections.OrderedDict", "lightgbm.basic.Booster"])
+            except Exception as e:
+                # Using a broad exception handle, in case it varies based on exact sklearn versions.
+                logger.warning(f"Could not log sklearn model due to an exception: {e}")
 
             logger.info(f"{model_name} Val PR-AUC: {metrics_05['pr_auc']:.4f}")
             logger.info(f"{model_name} Opt Threshold: {best_th:.4f}")
@@ -99,6 +120,10 @@ def main():
                 schema = {col: str(train_df[col].dtype) for col in train_df.columns if col != config.TARGET_COL}
                 with open(config.ARTIFACT_DIR / "schema.json", "w") as f:
                     json.dump(schema, f, indent=4)
+
+                # Log schemas to mlflow too
+                mlflow.log_artifact(str(config.ARTIFACT_DIR / "metadata.json"), artifact_path="metadata")
+                mlflow.log_artifact(str(config.ARTIFACT_DIR / "schema.json"), artifact_path="metadata")
 
     logger.info(f"Selected best model: {best_model_name}")
 

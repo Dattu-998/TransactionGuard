@@ -1,7 +1,9 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
+
 from transactionguard.config import config
 from transactionguard.utils.logging import get_logger
+
 logger = get_logger(__name__)
 
 def split_data(df: pd.DataFrame, target_col: str = "Class"):

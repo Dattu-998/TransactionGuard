@@ -1,16 +1,18 @@
 import json
+
 import joblib
 import pandas as pd
-from transactionguard.utils.logging import get_logger
+
 from transactionguard.config import config
 from transactionguard.models.evaluate import evaluate_model, plot_confusion_matrix
+from transactionguard.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
 def main():
     test_data_path = config.PROCESSED_DATA_DIR / "test_data.csv"
     if not test_data_path.exists():
-        logger.error(f"Test data not found.")
+        logger.error("Test data not found.")
         return
     df_test = pd.read_csv(test_data_path)
     try:

@@ -1,8 +1,11 @@
-import pandas as pd
-import numpy as np
 from pathlib import Path
-from transactionguard.utils.logging import get_logger
+
+import numpy as np
+import pandas as pd
+
 from transactionguard.config import config
+from transactionguard.utils.logging import get_logger
+
 logger = get_logger(__name__)
 
 def generate_demo_dataset(output_path: Path, num_samples: int = 284807):

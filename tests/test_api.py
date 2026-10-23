@@ -1,13 +1,16 @@
+import json
+
+import joblib
+import numpy as np
+import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
-import json
-import joblib
-import pandas as pd
-import numpy as np
-from app.main import app, predictor_instance
-from app.config import app_config
-from transactionguard.features.engineering import FeatureEngineer
 from sklearn.linear_model import LogisticRegression
+
+from app.config import app_config
+from app.main import app, predictor_instance
+from transactionguard.features.engineering import FeatureEngineer
+
 
 @pytest.fixture(autouse=True)
 def mock_artifacts(tmp_path):
@@ -48,10 +51,27 @@ def test_predict_single_valid():
         response = test_client.post("/predict", json={"F1": 1.5, "F2": 2.5})
         assert response.status_code == 200; data = response.json(); assert "probability" in data; assert "is_fraud" in data; assert data["threshold"] == 0.5
 
-def test_predict_single_invalid():
+def test_predict_single_invalid_missing():
     with TestClient(app) as test_client:
         response = test_client.post("/predict", json={"F1": 1.5})
         assert response.status_code == 400; assert "Missing required features" in response.json()["detail"]
+
+def test_predict_single_invalid_extra():
+    with TestClient(app) as test_client:
+        response = test_client.post("/predict", json={"F1": 1.5, "F2": 2.5, "F3": 3.5})
+        assert response.status_code == 400; assert "Unexpected features found" in response.json()["detail"]
+
+def test_predict_single_invalid_nan():
+    with TestClient(app) as test_client:
+        # Standard JSON does not support NaN/Infinity. We have to send as string or the client library fails.
+        # But we also want to test predictor's resilience. Let's just use string "NaN" to simulate a bad value.
+        response = test_client.post("/predict", json={"F1": 1.5, "F2": "NaN"})
+        assert response.status_code == 400; assert "Non-numeric values" in response.json()["detail"] or "Missing values" in response.json()["detail"]
+
+def test_predict_single_invalid_inf():
+    with TestClient(app) as test_client:
+        response = test_client.post("/predict", json={"F1": 1.5, "F2": "Infinity"})
+        assert response.status_code == 400; assert "Non-numeric values" in response.json()["detail"] or "Infinite values" in response.json()["detail"]
 
 def test_predict_batch_valid():
     with TestClient(app) as test_client:
@@ -62,3 +82,49 @@ def test_validate_endpoint():
     with TestClient(app) as test_client:
         response = test_client.post("/validate", json={"F1": 1.5, "F2": 2.5})
         assert response.status_code == 200; assert response.json()["valid"] is True
+
+def test_drift_valid(mock_artifacts, monkeypatch):
+    # We need to mock the existence of the reference dataset
+    from transactionguard.config import config
+
+    reference_path = config.REFERENCE_DATA_DIR / "reference.csv"
+    reference_path.parent.mkdir(parents=True, exist_ok=True)
+    df_train = pd.DataFrame({'F1': [1.0, 3.0], 'F2': [2.0, 4.0], 'Class': [0, 1]})
+    df_train.to_csv(reference_path, index=False)
+
+    with TestClient(app) as test_client:
+        payload = [
+            {"F1": 1.5, "F2": 2.5},
+            {"F1": -1.5, "F2": -2.5},
+            {"F1": 1.0, "F2": 2.0}
+        ]
+        response = test_client.post("/monitor/drift", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert "features_checked" in data
+        assert "feature_details" in data
+        assert "F1" in data["feature_details"]
+        assert "statistic" in data["feature_details"]["F1"]
+
+def test_drift_invalid_missing_ref(mock_artifacts):
+    from transactionguard.config import config
+    reference_path = config.REFERENCE_DATA_DIR / "reference.csv"
+    if reference_path.exists():
+        reference_path.unlink()
+
+    with TestClient(app) as test_client:
+        payload = [
+            {"F1": 1.5, "F2": 2.5}
+        ]
+        response = test_client.post("/monitor/drift", json=payload)
+        assert response.status_code == 503
+        assert "Reference data not found" in response.json()["detail"]
+
+def test_drift_invalid_data(mock_artifacts):
+    with TestClient(app) as test_client:
+        payload = [
+            {"F1": 1.5} # Missing F2
+        ]
+        response = test_client.post("/monitor/drift", json=payload)
+        assert response.status_code == 400
+        assert "Missing required features" in response.json()["detail"]

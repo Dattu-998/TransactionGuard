@@ -1,7 +1,9 @@
-import pandas as pd
 import numpy as np
-from transactionguard.data.split import split_data
+import pandas as pd
+
 from transactionguard.config import config
+from transactionguard.data.split import split_data
+
 
 def test_split_data():
     num_samples = 1000

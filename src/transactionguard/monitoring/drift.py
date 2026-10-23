@@ -1,6 +1,7 @@
 import pandas as pd
 from scipy.stats import ks_2samp
 
+
 def calculate_drift(reference_df: pd.DataFrame, current_df: pd.DataFrame, numerical_features: list[str]) -> dict:
     drift_results = {}
     total_drifted = 0

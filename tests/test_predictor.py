@@ -1,11 +1,14 @@
-import pytest
-import pandas as pd
-import numpy as np
 import json
+
 import joblib
-from transactionguard.features.engineering import FeatureEngineer
+import numpy as np
+import pandas as pd
+import pytest
 from sklearn.linear_model import LogisticRegression
+
 from app.predictor import Predictor
+from transactionguard.features.engineering import FeatureEngineer
+
 
 @pytest.fixture
 def mock_artifact_dir(tmp_path):
@@ -44,6 +47,21 @@ def test_predictor_validate_features_missing(mock_artifact_dir):
     predictor = Predictor(mock_artifact_dir); predictor.load()
     is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5}]))
     assert is_valid is False; assert "Missing required features" in msg
+
+def test_predictor_validate_features_unexpected(mock_artifact_dir):
+    predictor = Predictor(mock_artifact_dir); predictor.load()
+    is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5, "F2": 2.5, "F3": 3.5}]))
+    assert is_valid is False; assert "Unexpected features found" in msg
+
+def test_predictor_validate_features_nan(mock_artifact_dir):
+    predictor = Predictor(mock_artifact_dir); predictor.load()
+    is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5, "F2": np.nan}]))
+    assert is_valid is False; assert "Missing values" in msg
+
+def test_predictor_validate_features_inf(mock_artifact_dir):
+    predictor = Predictor(mock_artifact_dir); predictor.load()
+    is_valid, msg = predictor.validate_features(pd.DataFrame([{"F1": 1.5, "F2": np.inf}]))
+    assert is_valid is False; assert "Infinite values" in msg
 
 def test_predictor_validate_features_invalid_type(mock_artifact_dir):
     predictor = Predictor(mock_artifact_dir); predictor.load()

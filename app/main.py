@@ -1,14 +1,23 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.responses import JSONResponse
-from typing import Any
-import pandas as pd
 import logging
+from contextlib import asynccontextmanager
+from typing import Any
+
+import pandas as pd
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.responses import JSONResponse
 
 from app.config import app_config
-from app.predictor import Predictor
 from app.dependencies import get_predictor
-from app.schemas import HealthResponse, ReadyResponse, ModelInfoResponse, PredictionResponse, BatchPredictionResponse, ValidationResponse
+from app.predictor import Predictor
+from app.schemas import (
+    BatchPredictionResponse,
+    HealthResponse,
+    ModelInfoResponse,
+    PredictionResponse,
+    ReadyResponse,
+    ValidationResponse,
+)
+from transactionguard.config import config
 from transactionguard.monitoring.drift import calculate_drift
 
 logger = logging.getLogger(__name__)
@@ -50,7 +59,7 @@ async def predict_single(transaction: dict[str, Any], predictor: Predictor = Dep
         raise HTTPException(status_code=400, detail=msg)
     try:
         return predictor.predict(df)[0]
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Internal prediction error.")
 
 @app.post("/predict/batch", response_model=BatchPredictionResponse)
@@ -70,7 +79,7 @@ async def predict_batch(transactions: list[dict[str, Any]], predictor: Predictor
         fraud_count = sum(1 for p in preds if p["is_fraud"])
         summary = {"batch_size": len(preds), "fraud_detected": fraud_count, "fraud_prevalence": fraud_count / len(preds)}
         return BatchPredictionResponse(predictions=preds, summary=summary)
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=500, detail="Internal prediction error.")
 
 @app.post("/validate", response_model=ValidationResponse)
@@ -88,21 +97,28 @@ async def check_drift(current_data: list[dict[str, Any]], predictor: Predictor =
 
     curr_df = pd.DataFrame(current_data)
 
-    # Ideally, reference data is loaded from config.REFERENCE_DATA_DIR
-    # For demonstration, we assume we want to validate schema match at least
+    # Validate structure based on the model's schema to ensure we have the correct data shape
     if predictor.is_loaded:
-        is_valid, _ = predictor.validate_features(curr_df)
+        is_valid, msg = predictor.validate_features(curr_df)
         if not is_valid:
-            # We don't fail, but we note it.
-            pass
+            raise HTTPException(status_code=400, detail=msg)
 
-    # As a simple integration, we just calculate if the data is numeric
+    ref_path = config.REFERENCE_DATA_DIR / "reference.csv"
+    if not ref_path.exists():
+        raise HTTPException(status_code=503, detail="Reference data not found. Cannot calculate drift.")
+
+    try:
+        ref_df = pd.read_csv(ref_path)
+    except Exception as e:
+        logger.error(f"Failed to read reference data: {e}")
+        raise HTTPException(status_code=500, detail="Error loading reference data.")
+
     num_features = [col for col in curr_df.columns if pd.api.types.is_numeric_dtype(curr_df[col])]
 
-    # In a full system, we would load the actual reference_df here:
-    # try:
-    #    ref_df = pd.read_csv(config.REFERENCE_DATA_DIR / 'reference.csv')
-    #    summary = calculate_drift(ref_df, curr_df, num_features)
-    # except...
+    try:
+        summary = calculate_drift(ref_df, curr_df, num_features)
+    except Exception as e:
+        logger.error(f"Failed to calculate drift: {e}")
+        raise HTTPException(status_code=500, detail="Internal drift calculation error.")
 
-    return {"message": "Drift calculation triggered. Feature requires reference data loading in a real environment.", "features_provided": num_features}
+    return summary

@@ -1,7 +1,9 @@
-import pytest
-import pandas as pd
 import numpy as np
+import pandas as pd
+import pytest
+
 from transactionguard.data.validate import validate_dataset, validate_features
+
 
 def test_validate_dataset_valid():
     df = pd.DataFrame({'Feature1': [1.0, 2.0], 'Class': [0, 1]})

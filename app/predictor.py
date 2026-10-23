@@ -1,8 +1,10 @@
 import json
-import joblib
-import pandas as pd
-from pathlib import Path
 import logging
+from pathlib import Path
+
+import joblib
+import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ class Predictor:
             meta_path = self.artifact_dir / "metadata.json"
             schema_path = self.artifact_dir / "schema.json"
 
-            if not all([p.exists() for p in [model_path, fe_path, meta_path, schema_path]]):
+            if not all(p.exists() for p in [model_path, fe_path, meta_path, schema_path]):
                 return False
 
             self.model = joblib.load(model_path)
@@ -47,23 +49,35 @@ class Predictor:
         }
 
     def validate_features(self, df: pd.DataFrame) -> tuple[bool, str | None]:
-        missing = [f for f in self.schema.keys() if f not in df.columns]
+        missing = [f for f in self.schema if f not in df.columns]
         if missing:
             return False, f"Missing required features: {missing}"
+
+        unexpected = [f for f in df.columns if f not in self.schema]
+        if unexpected:
+            return False, f"Unexpected features found: {unexpected}"
+
         try:
-            for col, dtype in self.schema.items():
+            for col in self.schema:
                 if df[col].isnull().any():
-                    return False, f"Missing values found in column {col}"
+                    return False, f"Missing values (NaN) found in column {col}"
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 if df[col].isnull().any() or not pd.api.types.is_numeric_dtype(df[col]):
                     return False, f"Non-numeric values found in column {col}"
+                if np.isinf(df[col]).any():
+                    return False, f"Infinite values found in column {col}"
         except Exception as e:
             return False, f"Data validation error: {e}"
+
         return True, None
 
     def predict(self, df: pd.DataFrame) -> list[dict]:
         if not self.is_loaded:
             raise RuntimeError("Model is not loaded.")
+
+        # Order features as expected
+        df = df[list(self.schema.keys())]
+
         X = self.feature_engineer.transform(df)
         if hasattr(self.model, "predict_proba"):
             probs = self.model.predict_proba(X)[:, 1]
