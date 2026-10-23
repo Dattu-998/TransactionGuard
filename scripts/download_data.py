@@ -1,4 +1,3 @@
-import argparse
 from pathlib import Path
 
 from transactionguard.config import config
